@@ -117,14 +117,14 @@
     </div>
 
     <aside class="lg:col-span-4 space-y-6 sticky top-6 self-start">
-       <SponsorBox />
+       <!-- <SponsorBox /> -->
        
        <div class="bg-white border border-gray-200 rounded p-5 shadow-sm">
             <div class="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 mb-3">
                  More {toolData.category} Tools
             </div>
             <div class="flex flex-col gap-2">
-                {#each tools.filter(t => t.slug !== slug && t.category === toolData.category).slice(0, 5) as related}
+                {#each tools.filter(t => t.slug !== slug && t.category === toolData.category).slice(0, 10) as related}
                     <a href="/{related.slug}" class="text-[#0645ad] text-[13px] font-medium hover:underline block py-1 truncate">
                         {related.title}
                     </a>

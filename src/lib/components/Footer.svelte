@@ -11,15 +11,11 @@
     </p>
 
     <div class="flex flex-wrap justify-center gap-2 text-[13px] text-gray-600 mb-6">
-      <a href="#" class="hover:text-[#0645ad] hover:underline">About Us</a>
+      <a href="/privacy-policy" class="hover:text-[#0645ad] hover:underline">Privacy Policy</a>
       <span class="text-gray-300">•</span>
-      <a href="#" class="hover:text-[#0645ad] hover:underline">Privacy Policy</a>
+      <a href="/terms-of-service" class="hover:text-[#0645ad] hover:underline">Terms of Service</a>
       <span class="text-gray-300">•</span>
-      <a href="#" class="hover:text-[#0645ad] hover:underline">Terms of Service</a>
-      <span class="text-gray-300">•</span>
-      <a href="#" class="hover:text-[#0645ad] hover:underline">Contact</a>
-      <span class="text-gray-300">•</span>
-      <a href="#" class="hover:text-[#0645ad] hover:underline">Sitemap</a>
+      <a href="/contact" class="hover:text-[#0645ad] hover:underline">Contact</a>
     </div>
 
     <div class="text-[12px] text-gray-400">
