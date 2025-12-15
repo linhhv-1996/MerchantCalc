@@ -10,7 +10,7 @@
     <meta name="description" content="Complete directory of all seller fee calculators available on Merchant Calculator." />
 </svelte:head>
 
-<div class="max-w-[1000px] mx-auto px-5 py-12">
+<div class="max-w-[960px] mx-auto px-5 py-12">
     <h1 class="font-serif text-3xl font-bold text-gray-900 mb-8">Sitemap</h1>
     
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
