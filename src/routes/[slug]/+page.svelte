@@ -1,10 +1,11 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { tools } from '$lib/config';
+    import { seoContent } from '$lib/seo-content'; // <--- Import file mới
     import SponsorBox from '$lib/components/SponsorBox.svelte';
     import Breadcrumb from '$lib/components/Breadcrumb.svelte';
 
-    // Import 6 loại máy tính
+    // Import components
     import MarketplaceCalc from '$lib/calculators/MarketplaceCalc.svelte';
     import PaymentCalc from '$lib/calculators/PaymentCalc.svelte';
     import LogisticsVolume from '$lib/calculators/LogisticsCBM.svelte';
@@ -13,6 +14,7 @@
     import ComparisonCalc from '$lib/calculators/ComparisonCalc.svelte';
 
     const currentYear = new Date().getFullYear();
+    
     $: slug = $page.params.slug;
     $: toolData = tools.find(t => t.slug === slug);
 
@@ -25,83 +27,101 @@
         'comparison': ComparisonCalc
     };
 
-    // State dùng chung
-    let calcState = {}; 
+    // --- LOGIC XỬ LÝ SEO CONTENT ---
+    let dynamicArticle = { title: '', content: '' };
+
+    $: if (toolData) {
+        // Lấy template dựa trên 'type' (marketplace, payment...)
+        // Nếu không tìm thấy type thì fallback về bài mặc định hoặc rỗng
+        const template = seoContent[toolData.type] || { 
+            title: `Calculate Fees for ${toolData.title}`, 
+            content: '<p>Use this calculator to estimate your profits and fees accurately.</p>' 
+        };
+
+        // Hàm thay thế biến {{variable}} bằng giá trị thật
+        const replaceVars = (str: string) => {
+            return str
+                .replace(/{{toolName}}/g, toolData.title)
+                .replace(/{{year}}/g, currentYear.toString())
+                .replace(/{{currency}}/g, toolData.currency || '$')
+                .replace(/{{feeRate}}/g, toolData.feeRate ? (toolData.feeRate * 100).toString() : '0')
+                .replace(/{{fixedFee}}/g, toolData.fixedFee ? toolData.fixedFee.toString() : '0');
+        };
+
+        dynamicArticle = {
+            title: replaceVars(template.title),
+            content: replaceVars(template.content)
+        };
+    }
 </script>
 
 <svelte:head>
-    <title>{toolData ? toolData.title : 'Tool Not Found'} ({currentYear})</title>
+    <title>{toolData ? toolData.title : 'Tool Not Found'} ({currentYear}) - Merchant Calculator</title>
+    <meta name="description" content={`Calculate fees and profits for ${toolData?.title}. Updated for ${currentYear}.`} />
 </svelte:head>
 
 {#if toolData}
 <Breadcrumb category={toolData.category} title={toolData.title} />
 
 <main class="flex-grow bg-[#f9f9f9] min-h-screen">
-  <div class="max-w-[1100px] mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+  <div class="max-w-[1000px] mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
     
     <div class="lg:col-span-8">
       
-      <div class="mb-6">
+      <div class="mb-8">
         <h1 class="font-serif text-3xl font-bold text-gray-900 mb-2 leading-tight">{toolData.title}</h1>
-        <p class="text-sm text-gray-500 mb-4">Updated for {currentYear} • {toolData.country}</p>
+        <p class="text-sm text-gray-500 mb-4">Updated for {currentYear} • {toolData.country} • Free Tool</p>
         
         {#if toolData.affiliateTip}
-            <div class="bg-blue-50 border border-blue-100 p-3 rounded-md flex gap-3 items-center shadow-sm">
+           <div class="bg-blue-50 border border-blue-100 p-3 rounded-md flex gap-3 items-center shadow-sm">
                 <span class="text-lg">💡</span>
                 <div class="text-[13px] text-blue-900 leading-snug">
                     <strong class="font-bold">Pro Tip:</strong> {toolData.affiliateTip.text} 
                     <a href={toolData.affiliateTip.url} class="underline font-bold hover:text-blue-700 ml-1">
-                        {toolData.affiliateTip.linkText}
+                         {toolData.affiliateTip.linkText}
                     </a>
                 </div>
             </div>
         {/if}
       </div>
 
-      <div class="mb-10">
+      <div class="mb-12">
           <svelte:component 
               this={calculatorMap[toolData.type]} 
               config={toolData} 
-              mode="input"
-              bind:state={calcState} 
           />
       </div>
       
-      <article class="prose prose-sm max-w-none text-gray-600 border-t border-gray-200 pt-8">
-          <h3>Guide: {toolData.title}</h3>
-          <p>
-            This calculator helps independent sellers and creators estimate their net earnings for <strong>{toolData.category}</strong>. 
-            Calculations are processed locally in your browser for privacy.
-          </p>
+      <article class="mt-16 border-t border-slate-200 pt-12">
           
-          <h4>How fees are calculated in {currentYear}</h4>
-          <ul>
-              <li><strong>Platform Fees:</strong> Based on the standard rate of {toolData.feeRate ? (toolData.feeRate * 100).toFixed(2) + '%' : 'platform standards'}.</li>
-              <li><strong>Fixed Costs:</strong> Includes processing fees like {toolData.currency}{toolData.fixedFee || 0} per transaction.</li>
-          </ul>
-
-          <div class="bg-gray-50 p-4 rounded-md border border-gray-200 not-prose text-xs text-gray-500 mt-4">
-              <strong>Disclaimer:</strong> This tool provides estimates. Actual fees may vary based on your specific account status, VAT settings, or category-specific rates on {toolData.title}.
+          <h2 class="text-3xl font-black text-slate-900 mb-6 tracking-tight">
+              {dynamicArticle.title}
+          </h2>
+          
+          <div class="prose prose-lg prose-slate max-w-none 
+                      prose-headings:font-bold prose-headings:text-slate-800 
+                      prose-p:text-slate-600 prose-li:text-slate-600 
+                      prose-strong:text-slate-900 prose-strong:font-bold">
+              {@html dynamicArticle.content}
           </div>
+
+          <div class="mt-10 pt-6 border-t border-slate-100 flex gap-4 items-start opacity-70">
+              <span class="text-2xl">⚖️</span>
+              <p class="text-xs text-slate-500 leading-5">
+                  <strong>Disclaimer:</strong> This tool provides estimates for planning purposes only. Official platform fees are subject to change and may vary based on your specific account status, VAT settings, or subscription level. We are not a financial advisor.
+              </p>
+          </div>
+
       </article>
+
     </div>
 
-    <aside class="lg:col-span-4 space-y-6 sticky top-6 self-start z-10">
-       
-       <div class="shadow-lg rounded-md overflow-hidden ring-1 ring-black/5">
-           <svelte:component 
-                this={calculatorMap[toolData.type]} 
-                config={toolData} 
-                mode="result"
-                bind:state={calcState} 
-            />
-       </div>
-
+    <aside class="lg:col-span-4 space-y-6 sticky top-6 self-start">
        <SponsorBox />
        
        <div class="bg-white border border-gray-200 rounded p-5 shadow-sm">
             <div class="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 mb-3">
-                Related {toolData.category} Tools
+                 More {toolData.category} Tools
             </div>
             <div class="flex flex-col gap-2">
                 {#each tools.filter(t => t.slug !== slug && t.category === toolData.category).slice(0, 5) as related}
@@ -118,7 +138,6 @@
 {:else}
 <div class="min-h-[50vh] flex flex-col items-center justify-center p-10 text-center">
     <h1 class="text-3xl font-bold text-gray-300 mb-4">404</h1>
-    <h2 class="text-xl font-bold text-gray-900 mb-4">Tool not found</h2>
-    <a href="/" class="text-white bg-[#0645ad] px-6 py-2 rounded hover:bg-blue-800 transition">Back to Directory</a>
+    <a href="/" class="text-white bg-[#0645ad] px-6 py-2 rounded hover:bg-blue-800 transition">Back to Home</a>
 </div>
 {/if}
