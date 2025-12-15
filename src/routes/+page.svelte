@@ -66,8 +66,6 @@
 
 <section class="bg-[#f4f5f7] border-b border-gray-200 shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)] relative z-20">
   <div class="max-w-[1000px] mx-auto px-4 py-14 flex flex-col items-center text-center">
-    
-    <h2 class="text-gray-800 text-lg font-serif font-bold mb-2">Find your profit tool</h2>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class="text-gray-500 mb-4 text-xs font-bold uppercase tracking-widest">
       Search {tools.length}+ Free Calculators
@@ -78,7 +76,7 @@
             bind:value={searchTerm} 
             on:focus={() => showDropdown = true}
             on:blur={closeDropdown}
-            class="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-300 rounded text-gray-900 shadow-sm focus:outline-none focus:border-[#0645ad] focus:ring-1 focus:ring-[#0645ad] transition-all" 
+            class="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-300 rounded text-gray-900 shadow-sm focus:outline-none focus:border-[#0645ad] focus:ring-1 focus:ring-[#0645ad] transition-all" 
             placeholder="Search (e.g. ebay uk, cbm, roas, etsy)..." 
         />
         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
