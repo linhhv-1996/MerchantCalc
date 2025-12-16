@@ -1,58 +1,70 @@
 <script lang="ts">
     import { tools } from '$lib/config';
 
-    // Categories
-    const categories = ['Marketplace', 'Handmade', 'Fashion', 'Social', 'Logistics', 'Finance'];
+    // --- LOGIC PHÂN NHÓM DỮ LIỆU ---
+    // Nhóm 1: Marketplaces (Marketplace, Handmade, Fashion, Social)
+    const marketGroups = ['Marketplace', 'Handmade', 'Fashion', 'Social'];
+    $: marketTools = tools.filter(t => marketGroups.includes(t.category));
 
-    const year = new Date().getFullYear();
+    // Nhóm 2: Finance (Finance, E-commerce)
+    const financeGroups = ['Finance', 'E-commerce'];
+    $: financeTools = tools.filter(t => financeGroups.includes(t.category));
 
-    // Search Logic
+    // Nhóm 3: Logistics
+    $: logisticsTools = tools.filter(t => t.category === 'Logistics');
+
+    // --- LOGIC TÌM KIẾM ---
     let searchTerm = '';
-    let showDropdown = false;
-
     $: filteredResults = searchTerm 
         ? tools.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())) 
         : [];
 
-    function closeDropdown() {
-        setTimeout(() => { showDropdown = false; }, 200);
-    }
-    
-    // Schema Data cho SEO (Google FAQPage)
+    const currentYear = new Date().getFullYear();
+
+    // --- SCHEMA DATA (SEO JSON-LD) ---
+    // Dữ liệu đầy đủ không cắt bớt
     const schemaData = {
       "@context": "https://schema.org",
       "@type": "FAQPage",
       "mainEntity": [
         {
           "@type": "Question",
-          "name": `Are these seller fee calculators accurate for ${year}?`,
+          "name": `Are these seller fee calculators accurate for ${currentYear}?`,
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": `Yes. We actively monitor platform policy pages (eBay, Etsy, Amazon, PayPal) and update our algorithms weekly to reflect the latest fee structures, VAT rates, and shipping costs for ${year}.`
+            "text": `Yes. We actively monitor official platform policy pages (eBay, Etsy, Amazon, PayPal) and update our algorithms weekly to reflect the latest fee structures, VAT rates, and shipping costs for ${currentYear}.`
           }
         },
         {
           "@type": "Question",
-          "name": "Do you store my financial data or sales figures?",
+          "name": "Do you store my sales data?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Absolutely not. Merchant Calculator operates with a strict privacy-first policy. All calculations are performed 'client-side' using JavaScript in your own browser. Your data never touches our servers."
+            "text": "Absolutely not. Merchant Calculator operates with a strict privacy-first policy. All calculations are performed 'client-side' (in your browser). Your financial data never touches our servers."
           }
         },
         {
           "@type": "Question",
-          "name": "Can I use these calculators for tax reporting?",
+          "name": "Is this tool really free?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "These tools provide high-quality estimates for profit planning and break-even analysis. However, they are not a substitute for professional accounting software or tax advice. Final platform fees may vary slightly due to specific account statuses."
+            "text": "Yes. We believe in open-access tools for the creator economy. We do not charge subscriptions. The site is supported by minimal affiliate partnerships with tools we trust."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use this for tax reporting?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "These tools provide high-quality estimates for profit planning. However, they are not a substitute for professional accounting software. For official tax filings, please consult a certified accountant."
           }
         },
          {
           "@type": "Question",
-          "name": "Which countries do you support?",
+          "name": "What platforms do you support?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "We currently support major e-commerce markets including the United Kingdom (UK), United States (USA), Australia, Canada, and Germany. We also offer global tools for Stripe, PayPal, and freelance platforms."
+            "text": "We cover major marketplaces (eBay, Amazon, Walmart), handmade platforms (Etsy), fashion apps (Depop, Vinted, StockX), and payment processors (PayPal, Stripe, Wise)."
           }
         }
       ]
@@ -60,122 +72,252 @@
 </script>
 
 <svelte:head>
-    <title>Merchant Calculator - Free Seller Fee Directory ({year})</title>
-    <meta name="description" content={`Calculate seller fees and profits for eBay, Amazon FBA, Etsy, PayPal, and more. Free, privacy-focused, and updated for ${year}.`} />
+    <title>Merchant Calculators - Fee Calculator Directory ({currentYear})</title>
+    <meta name="description" content={`Complete directory of free fee calculators for eBay, Amazon, Shopify, and PayPal. Updated daily for ${currentYear} seller policies.`} />
     {@html `<script type="application/ld+json">${JSON.stringify(schemaData)}</script>`}
 </svelte:head>
 
-<section class="bg-[#fafafa] border-b border-gray-200 relative z-20">
-  <div class="max-w-[1000px] mx-auto px-4 py-10 flex flex-col items-center text-center">
-    <label class="text-gray-400 mb-3 text-[11px] font-bold uppercase tracking-widest">
-      Search {tools.length}+ Free Calculators
-    </label>
-    
-    <div class="relative w-full max-w-[500px]">
-        <input 
-            bind:value={searchTerm} 
-            on:focus={() => showDropdown = true}
-            on:blur={closeDropdown}
-            class="w-full pl-11 pr-4 py-3 bg-white border border-gray-300 rounded text-gray-900 shadow-sm focus:outline-none focus:border-[#0645ad] focus:ring-1 focus:ring-[#0645ad] transition-all placeholder:text-gray-400 text-sm" 
-            placeholder="Search (e.g. ebay uk, cbm, roas, etsy)..." 
-        />
-        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
-        </div>
 
-        {#if showDropdown && searchTerm && filteredResults.length > 0}
-        <div class="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden z-50 text-left">
-            <div class="max-h-[300px] overflow-y-auto">
-                 {#each filteredResults as tool}
-                    <a href="/{tool.slug}" class="block px-4 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0 transition-colors group">
-                        <div class="text-[13px] font-semibold text-gray-800 group-hover:text-[#0645ad]">{tool.title}</div>
-                        <div class="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{tool.category} • {tool.country}</div>
-                    </a>
-                {/each}
-            </div>
+    <main class="w-full max-w-[1000px] mx-auto px-0 py-0 flex-1">
+
+        {#if !searchTerm}
+        <div class="mb-8">
+            <p class="text-xl font-medium text-white mb-2">Calculator Directory</p>
+            <p class="text-[#888] text-sm max-w-2xl font-light">
+                Complete database of fee calculators for eBay, Amazon, Shopify & PayPal. 
+                Data sourced directly from {currentYear} platform policies.
+            </p>
         </div>
         {/if}
-        {#if showDropdown && searchTerm && filteredResults.length === 0}
-        <div class="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg p-4 z-50 text-sm text-gray-500">
-            No calculators found for "{searchTerm}".
-        </div>
+
+        {#if searchTerm}
+            <section>
+                <h2 class="section-header">Search Results</h2>
+                {#if filteredResults.length > 0}
+                    <div class="tool-grid">
+                        {#each filteredResults as tool}
+                            <a href="/{tool.slug}" class="tool-row group">
+                                <span class="tool-name">{tool.title}</span>
+                                <span class="tool-meta">[{tool.country === 'Global' ? 'GLOBAL' : tool.country.toUpperCase()}]</span>
+                            </a>
+                        {/each}
+                    </div>
+                {:else}
+                    <div class="text-[#555] py-10 italic">No calculators found for "{searchTerm}".</div>
+                {/if}
+            </section>
+        {:else}
+            <section>
+                <h2 id="marketplaces" class="section-header scroll-mt-20">
+                    Marketplaces ({marketTools.length} Tools)
+                </h2>
+                <div class="tool-grid">
+                    {#each marketTools as tool}
+                        <a href="/{tool.slug}" class="tool-row group">
+                            <span class="tool-name">{tool.title}</span>
+                            <span class="tool-meta">[{tool.country === 'Global' ? 'GLOBAL' : tool.country.toUpperCase()}]</span>
+                        </a>
+                    {/each}
+                </div>
+            </section>
+
+            <a href="https://wise.com/business" target="_blank" rel="nofollow noopener" class="ad-block group">
+                <div class="ad-content">
+                    <h3 class="text-[15px] font-semibold text-white flex items-center gap-2 mb-1">
+                        <span class="text-yellow-500">🏦</span>
+                        Wise Business Banking
+                        <span class="ad-badge">Recommended</span>
+                    </h3>
+                    <p class="text-[13px] text-[#888] font-light">Selling internationally? Save 3-5% on currency exchange rates vs PayPal.</p>
+                </div>
+                <div class="ad-cta group-hover:bg-white group-hover:text-black transition-colors">Open Account &rarr;</div>
+            </a>
+
+            <section>
+                <h2 id="finance" class="section-header scroll-mt-20">
+                    Finance & Payments ({financeTools.length} Tools)
+                </h2>
+                <div class="tool-grid">
+                    {#each financeTools as tool}
+                        <a href="/{tool.slug}" class="tool-row group">
+                            <span class="tool-name">{tool.title}</span>
+                            <span class="tool-meta">[{tool.country === 'Global' ? 'GLOBAL' : tool.country.toUpperCase()}]</span>
+                        </a>
+                    {/each}
+                </div>
+            </section>
+
+            <a href="https://printify.com" target="_blank" rel="nofollow noopener" class="ad-block group">
+                <div class="ad-content">
+                    <h3 class="text-[15px] font-semibold text-white flex items-center gap-2 mb-1">
+                        <span class="text-green-500">👕</span>
+                        Start Print-on-Demand
+                        <span class="ad-badge">Partner</span>
+                    </h3>
+                    <p class="text-[13px] text-[#888] font-light">Connect Printify to eBay/Etsy. Zero inventory risk, high profit margins.</p>
+                </div>
+                <div class="ad-cta group-hover:bg-white group-hover:text-black transition-colors">Start Free &rarr;</div>
+            </a>
+
+            <section>
+                <h2 id="logistics" class="section-header scroll-mt-20">
+                    Logistics & Freight ({logisticsTools.length} Tools)
+                </h2>
+                <div class="tool-grid">
+                    {#each logisticsTools as tool}
+                        <a href="/{tool.slug}" class="tool-row group">
+                            <span class="tool-name">{tool.title}</span>
+                            <span class="tool-meta">[{tool.country === 'Global' ? 'GLOBAL' : tool.country.toUpperCase()}]</span>
+                        </a>
+                    {/each}
+                </div>
+            </section>
+
+            <section class="mt-20">
+                <h2 class="text-sm font-semibold text-[#555] uppercase tracking-wide mb-4">Common Questions</h2>
+                
+                <details class="group bg-[#141414] border border-[#333] rounded mb-2">
+                    <summary class="p-4 cursor-pointer font-normal text-[#ccc] flex justify-between items-center group-hover:bg-[#1a1a1a] group-hover:text-white transition-colors select-none">
+                        How accurate are the calculators?
+                        <span class="font-mono text-[#666] font-bold text-lg group-open:hidden">+</span>
+                        <span class="font-mono text-[#666] font-bold text-lg hidden group-open:block">−</span>
+                    </summary>
+                    <div class="p-4 text-[#999] text-sm font-light leading-6 border-t border-[#333] mt-2">
+                        Updated daily with {currentYear} policies from eBay, Amazon, etc. Final fees may vary by user account status.
+                    </div>
+                </details>
+
+                <details class="group bg-[#141414] border border-[#333] rounded mb-2">
+                    <summary class="p-4 cursor-pointer font-normal text-[#ccc] flex justify-between items-center group-hover:bg-[#1a1a1a] group-hover:text-white transition-colors select-none">
+                        Do you account for Sales Tax/VAT?
+                        <span class="font-mono text-[#666] font-bold text-lg group-open:hidden">+</span>
+                        <span class="font-mono text-[#666] font-bold text-lg hidden group-open:block">−</span>
+                    </summary>
+                    <div class="p-4 text-[#999] text-sm font-light leading-6 border-t border-[#333] mt-2">
+                        Yes. Region-specific tools (UK/EU) handle VAT. US tools include Sales Tax fields for accurate processing fee calculation.
+                    </div>
+                </details>
+
+                <details class="group bg-[#141414] border border-[#333] rounded mb-2">
+                    <summary class="p-4 cursor-pointer font-normal text-[#ccc] flex justify-between items-center group-hover:bg-[#1a1a1a] group-hover:text-white transition-colors select-none">
+                        Can I calculate Drop Shipping profit?
+                        <span class="font-mono text-[#666] font-bold text-lg group-open:hidden">+</span>
+                        <span class="font-mono text-[#666] font-bold text-lg hidden group-open:block">−</span>
+                    </summary>
+                    <div class="p-4 text-[#999] text-sm font-light leading-6 border-t border-[#333] mt-2">
+                        Yes. Enter your supplier cost (COGS) in the "Item Cost" field to deduct marketplace fees and see net profit.
+                    </div>
+                </details>
+
+                <details class="group bg-[#141414] border border-[#333] rounded mb-2">
+                    <summary class="p-4 cursor-pointer font-normal text-[#ccc] flex justify-between items-center group-hover:bg-[#1a1a1a] group-hover:text-white transition-colors select-none">
+                        Is this tool really free?
+                        <span class="font-mono text-[#666] font-bold text-lg group-open:hidden">+</span>
+                        <span class="font-mono text-[#666] font-bold text-lg hidden group-open:block">−</span>
+                    </summary>
+                    <div class="p-4 text-[#999] text-sm font-light leading-6 border-t border-[#333] mt-2">
+                         Yes. We believe in open-access tools for the creator economy. We do not charge subscriptions. The site is supported by minimal affiliate partnerships with tools we trust.
+                    </div>
+                </details>
+
+                <details class="group bg-[#141414] border border-[#333] rounded mb-2">
+                    <summary class="p-4 cursor-pointer font-normal text-[#ccc] flex justify-between items-center group-hover:bg-[#1a1a1a] group-hover:text-white transition-colors select-none">
+                        Do you store my sales data?
+                        <span class="font-mono text-[#666] font-bold text-lg group-open:hidden">+</span>
+                        <span class="font-mono text-[#666] font-bold text-lg hidden group-open:block">−</span>
+                    </summary>
+                    <div class="p-4 text-[#999] text-sm font-light leading-6 border-t border-[#333] mt-2">
+                        Absolutely not. Merchant Calculator operates with a strict privacy-first policy. All calculations are performed "client-side" (in your browser). Your financial data never touches our servers.
+                    </div>
+                </details>
+            </section>
         {/if}
-    </div>
-  </div>
-</section>
 
-<main id="directory" class="flex-grow bg-[#fafafa]">
-  <div class="max-w-[1000px] mx-auto px-5 py-10">
-    <div class="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
-      {#each categories as cat}
-        <div class="break-inside-avoid bg-[#fafafa] border border-gray-300 p-5 rounded hover:border-[#0645ad] transition-colors mb-6">
-            <h2 class="text-[14px] font-bold mb-3 text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2 uppercase tracking-wide">
-                {cat}
-            </h2>
-            <div class="flex flex-col gap-1.5">
-                {#each tools.filter(t => t.category === cat) as tool}
-                    <a href="/{tool.slug}" class="text-[#0645ad] text-[13px] hover:underline hover:text-[#0b0080] transition leading-snug">
-                        {tool.title}
-                    </a>
-                {/each}
-            </div>
-        </div>
-      {/each}
-    </div>
-  </div>
-</main>
+    </main>
 
-<section id="faq" class="bg-[#fafafa] border-t border-gray-200">
-  <div class="max-w-[1000px] mx-auto px-5 py-16">
-    <div class="text-center mb-10">
-        <h3 class="font-serif text-3xl font-bold text-gray-900 mb-3">Frequently Asked Questions</h3>
-        <p class="text-gray-500 text-sm">Common questions about seller fees, profit margins, and our tools.</p>
-    </div>
+
+<style>
+    /* STYLE TỪ INDEX.HTML */
     
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-      
-      <div>
-        <h4 class="font-bold text-gray-900 text-[16px] mb-3">Are these calculators accurate for {year}?</h4>
-        <p class="text-[14px] text-gray-600 leading-relaxed">
-          Yes. We actively monitor official platform policy pages (eBay, Etsy, Amazon, PayPal) and update our algorithms weekly to reflect the latest fee structures, VAT rates, and shipping costs for {year}.
-        </p>
-      </div>
-      
-      <div>
-        <h4 class="font-bold text-gray-900 text-[16px] mb-3">Do you store my sales data?</h4>
-        <p class="text-[14px] text-gray-600 leading-relaxed">
-          Absolutely not. Merchant Calculator operates with a strict <strong>privacy-first</strong> policy. All calculations are performed "client-side" (in your browser). Your financial data never touches our servers.
-        </p>
-      </div>
+    .section-header { 
+        border-bottom: 1px solid #333; 
+        padding-bottom: 8px; 
+        margin-bottom: 16px; 
+        margin-top: 40px;
+        font-size: 13px; 
+        font-weight: 600; 
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #777;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-      <div>
-        <h4 class="font-bold text-gray-900 text-[16px] mb-3">Is this tool really free?</h4>
-        <p class="text-[14px] text-gray-600 leading-relaxed">
-          Yes. We believe in open-access tools for the creator economy. We do not charge subscriptions. The site is supported by minimal affiliate partnerships with tools we trust (like Wise or ShipStation).
-        </p>
-      </div>
+    .tool-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+        border-top: 1px solid #222; 
+    }
 
-      <div>
-        <h4 class="font-bold text-gray-900 text-[16px] mb-3">Can I use this for tax reporting?</h4>
-        <p class="text-[14px] text-gray-600 leading-relaxed">
-           These tools provide high-quality estimates for profit planning. However, they are not a substitute for professional accounting software. For official tax filings, please consult a certified accountant.
-        </p>
-      </div>
+    .tool-row {
+        display: flex;
+        align-items: baseline; 
+        padding: 10px 12px;
+        border-bottom: 1px solid #222;
+        text-decoration: none;
+        color: inherit;
+        transition: background-color 0.1s ease;
+        position: relative;
+    }
+    
+    .tool-row:hover { background-color: #1a1a1a; z-index: 1; }
 
-      <div>
-        <h4 class="font-bold text-gray-900 text-[16px] mb-3">What platforms do you support?</h4>
-        <p class="text-[14px] text-gray-600 leading-relaxed">
-           We cover major marketplaces (eBay, Amazon, Walmart), handmade platforms (Etsy), fashion apps (Depop, Vinted, StockX), and payment processors (PayPal, Stripe, Wise).
-        </p>
-      </div>
+    .tool-name { color: #3b82f6; font-weight: 400; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tool-row:hover .tool-name { text-decoration: underline; color: #60a5fa; }
 
-      <div>
-        <h4 class="font-bold text-gray-900 text-[16px] mb-3">How do I calculate CBM?</h4>
-        <p class="text-[14px] text-gray-600 leading-relaxed">
-           Use our <a href="/cbm-calculator" class="text-[#0645ad] hover:underline">CBM Calculator</a> under the Logistics section. Simply enter the length, width, height, and quantity of your cartons to get the total volume and chargeable weight.
-        </p>
-      </div>
+    .tool-meta { font-size: 10px; color: #555; font-family: monospace; margin-left: auto; flex-shrink: 0; }
+    
+    /* AD BLOCK */
+    .ad-block {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #161616; 
+        border: 1px solid #333; 
+        border-radius: 4px;
+        padding: 16px 20px;
+        margin: 32px 0; 
+        text-decoration: none;
+        transition: border-color 0.2s;
+    }
+    .ad-block:hover { border-color: #555; }
+    
+    .ad-badge { font-size: 10px; text-transform: uppercase; background: #333; color: #aaa; padding: 2px 6px; border-radius: 2px; border: 1px solid #444; margin-left: 8px; }
+    
+    .ad-cta { 
+        background: #e5e5e5; 
+        color: #000; 
+        font-size: 12px; 
+        font-weight: 600; 
+        padding: 6px 12px; 
+        border-radius: 2px; 
+        white-space: nowrap;
+        transition: background 0.2s;
+    }
+    .ad-block:hover .ad-cta { background-color: white; color: black; }
 
-    </div>
-  </div>
-</section>
+    @media (min-width: 768px) {
+        .tool-grid {
+            grid-template-columns: 1fr 1fr; 
+            column-gap: 32px; 
+        }
+    }
+
+    @media (max-width: 640px) {
+        .tool-row { padding: 12px 0; border-bottom: 1px dashed #333; }
+        .ad-block { flex-direction: column; align-items: flex-start; gap: 12px; }
+        .ad-cta { width: 100%; text-align: center; }
+    }
+</style>
