@@ -52,6 +52,41 @@
                 align-items: center;
                 gap: 8px;
             }
+
+            /* Input Style giống file HTML */
+    .calc-input {
+        background-color: #0a0a0a;
+        border: 1px solid #333333;
+        color: #fff;
+        width: 100%;
+        padding: 10px 12px;
+        font-family: 'ui-monospace', 'SFMono-Regular', monospace;
+        font-size: 14px;
+        border-radius: 2px;
+        transition: border-color 0.15s;
+    }
+    .calc-input:focus { border-color: #555; outline: none; }
+    
+    .input-label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #888;
+        margin-bottom: 6px;
+        font-weight: 600;
+    }
+
+    /* Result Box Style */
+    .result-box {
+        background-color: #161616; /* Panel color */
+        border: 1px solid #333;
+        padding: 16px;
+        border-radius: 2px;
+    }
+    .result-label { font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .result-value { font-size: 24px; font-weight: 600; font-family: monospace; }
+    
         </style>
 		%sveltekit.head%
 	</head>
