@@ -1,49 +1,111 @@
 // src/lib/config.ts
 
-export interface CategoryRate {
+// ==========================================
+// 1. DEFINITIONS (CORE LOGIC)
+// ==========================================
+
+export type FeeType = 'fixed' | 'percent' | 'tiered_progressive' | 'tiered_flat';
+
+export interface FeeCondition {
+    minPrice?: number; // Chỉ áp dụng nếu giá >= mức này
+    maxPrice?: number; // Chỉ áp dụng nếu giá < mức này
+}
+
+export interface FeeTier {
+    upto: number;   // Ngưỡng giá (Infinity cho mức cuối)
+    rate: number;   // % áp dụng cho khoảng này
+    fixed?: number; // Phí cố định cho khoảng này (nếu có)
+}
+
+export interface FeeRule {
     name: string;
-    rate: number;
-    fixed?: number; // Override fixed fee nếu cần (Ví dụ: Poshmark đơn nhỏ)
+    type: FeeType;
+    value?: number;     // Dùng cho 'fixed' hoặc 'percent' đơn giản
+    tiers?: FeeTier[];  // Dùng cho 'tiered_progressive'
+    condition?: FeeCondition;
+    cap?: number;       // Mức phí tối đa (Max Fee Cap)
+    min?: number;       // Mức phí tối thiểu (Min Fee)
+    isOptional?: boolean; // User có thể tick chọn
+    hidden?: boolean;   // Dùng cho các phí ẩn hoặc đã gộp
+    description?: string; // Tooltip giải thích phí
+}
+
+export interface Category {
+    name: string;
+    rules: FeeRule[];
 }
 
 export interface ToolConfig {
     slug: string;
     title: string;
-    category: 'Marketplace' | 'Handmade' | 'Fashion' | 'Social' | 'Logistics' | 'Finance';
+    category: 'Marketplace' | 'Handmade' | 'Fashion' | 'Social' | 'Logistics' | 'Finance' | 'E-commerce';
     country: string;
     currency: string;
+    type: 'marketplace' | 'payment_processor' | 'logistics_volume' | 'logistics_density' | 'creator_revenue' | 'comparison' | 'calculator'; 
     
-    // 6 Loại Logic
-    type: 'marketplace' | 'payment_processor' | 'logistics_volume' | 'logistics_density' | 'creator_revenue' | 'comparison'; 
-    
-    // --- BASIC FEES ---
-    feeRate?: number;        
-    fixedFee?: number;
-    
-    // --- ADVANCED FEATURES (New) ---
-    categories?: CategoryRate[]; // Danh sách ngành hàng / Cấp độ người bán
-    hasAdInput?: boolean;        // Cho phép nhập % Quảng cáo
-    hasTaxInput?: boolean;       // Cho phép nhập % Thuế (Sales Tax/VAT)
-    
-    // --- COMPARISON & LABELS ---
-    compare?: { 
-        nameA: string; rateA: number; fixedA: number; 
-        nameB: string; rateB: number; fixedB: number; 
-    };
+    // --- NEW FEE STRUCTURE ---
+    globalFees?: FeeRule[];  
+    categories?: Category[]; 
+    vatOnFeeRate?: number;   
 
-    labels?: {
-        amount?: string;
-        result?: string;
-    };
-
+    // --- SETTINGS ---
+    hasAdInput?: boolean;    
+    hasTaxInput?: boolean;   
+    hasCostInput?: boolean;  
+    hasShippingInput?: boolean; 
+    
+    // --- LEGACY/HELPER ---
+    labels?: { amount?: string; result?: string; cost?: string; };
+    compare?: { nameA: string; rateA: number; fixedA: number; nameB: string; rateB: number; fixedB: number; };
     affiliateTip?: { text: string; linkText: string; url: string; };
 }
+
+// ==========================================
+// 2. TOOLS DATA (FULL MERGED VERSION)
+// ==========================================
 
 export const tools: ToolConfig[] = [
     
     // ============================================================
-    // 1. MAJOR MARKETPLACES (eBay, Amazon, Walmart)
+    // GROUP 1: MAJOR MARKETPLACES (eBay, Amazon, Walmart)
     // ============================================================
+    {
+        slug: 'ebay-fee-calculator-usa',
+        title: 'eBay Fee Calculator USA (2025)',
+        category: 'Marketplace',
+        country: 'USA',
+        currency: '$',
+        type: 'marketplace',
+        hasAdInput: true,
+        hasTaxInput: true,
+        hasShippingInput: true,
+        globalFees: [
+            { name: 'Regulatory Operating Fee', type: 'fixed', value: 0.30 },
+            { name: 'International Fee', type: 'percent', value: 0.0165, isOptional: true }
+        ],
+        categories: [
+            {
+                name: 'Most Categories (Standard)',
+                rules: [{ name: 'Final Value Fee', type: 'tiered_progressive', tiers: [{ upto: 7500, rate: 0.1325 }, { upto: Infinity, rate: 0.0235 }] }]
+            },
+            {
+                name: 'Sneakers > $150',
+                rules: [
+                    { name: 'Final Value Fee', type: 'percent', value: 0.08 },
+                    { name: 'Insertion Fee', type: 'fixed', value: 0, hidden: true }
+                ]
+            },
+            {
+                name: 'Watches, Parts & Accessories',
+                rules: [{ name: 'Final Value Fee', type: 'tiered_progressive', tiers: [{ upto: 1000, rate: 0.15 }, { upto: 7500, rate: 0.065 }, { upto: Infinity, rate: 0.03 }] }]
+            },
+            {
+                name: 'Consumer Electronics',
+                rules: [{ name: 'Final Value Fee', type: 'tiered_progressive', tiers: [{ upto: 7500, rate: 0.09 }, { upto: Infinity, rate: 0.0235 }] }]
+            }
+        ],
+        affiliateTip: { text: "Giảm phí ship eBay?", linkText: "Dùng thử ShipStation", url: "#" }
+    },
     {
         slug: 'ebay-fee-calculator-uk',
         title: 'eBay Fee Calculator UK',
@@ -51,40 +113,20 @@ export const tools: ToolConfig[] = [
         country: 'UK',
         currency: '£',
         type: 'marketplace',
-        fixedFee: 0.30,
         hasAdInput: true,
-        hasTaxInput: true, // UK VAT
-        categories: [
-            { name: 'Most Categories (Standard)', rate: 0.128 },
-            { name: 'Clothing, Shoes & Accessories', rate: 0.129 },
-            { name: 'Jewellery & Watches', rate: 0.15 },
-            { name: 'Computers/Tablets & Networking', rate: 0.069 },
-            { name: 'Video Games & Consoles', rate: 0.09 },
-            { name: 'Vehicle Parts & Accessories', rate: 0.089 },
-            { name: 'Sneakers (>£100)', rate: 0.08, fixed: 0 }, 
+        hasTaxInput: true,
+        vatOnFeeRate: 0.20, 
+        globalFees: [
+            { name: 'Regulatory Operating Fee', type: 'fixed', value: 0.30 },
+            { name: 'International Fee', type: 'percent', value: 0.0126, isOptional: true }
         ],
-        affiliateTip: { text: "Selling internationally?", linkText: "Use Wise", url: "#" }
-    },
-    {
-        slug: 'ebay-fee-calculator-usa',
-        title: 'eBay Fee Calculator USA',
-        category: 'Marketplace',
-        country: 'USA',
-        currency: '$',
-        type: 'marketplace',
-        fixedFee: 0.30, 
-        hasAdInput: true,
-        hasTaxInput: true, // Sales Tax
         categories: [
-            { name: 'Most Categories (13.25%)', rate: 0.1325 },
-            { name: 'Clothing & Shoes (15%)', rate: 0.15 },
-            { name: 'Books, DVDs & Movies (14.95%)', rate: 0.1495 },
-            { name: 'Musical Instruments (6%)', rate: 0.06 },
-            { name: 'Consumer Electronics (9%)', rate: 0.09 },
-            { name: 'Jewelry & Watches (15%)', rate: 0.15 },
-            { name: 'Coins & Paper Money (13.25%)', rate: 0.1325 },
+            { name: 'Most Categories', rules: [{ name: 'Final Value Fee', type: 'percent', value: 0.128 }] },
+            { name: 'Sneakers > £100', rules: [{ name: 'Final Value Fee', type: 'percent', value: 0.08 }] },
+            { name: 'Jewellery & Watches', rules: [{ name: 'Final Value Fee', type: 'percent', value: 0.149 }] },
+            { name: 'Computers/Tablets', rules: [{ name: 'Final Value Fee', type: 'percent', value: 0.069 }] }
         ],
-        affiliateTip: { text: "Cheaper shipping labels?", linkText: "ShipStation Trial", url: "#" }
+        affiliateTip: { text: "Nhận tiền từ UK?", linkText: "Mở tài khoản Wise", url: "#" }
     },
     {
         slug: 'ebay-fee-calculator-australia',
@@ -93,14 +135,14 @@ export const tools: ToolConfig[] = [
         country: 'Australia',
         currency: 'A$',
         type: 'marketplace',
-        fixedFee: 0.30,
         hasAdInput: true,
-        hasTaxInput: true, // GST
+        hasTaxInput: true,
+        globalFees: [
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
         categories: [
-            { name: 'Most Categories', rate: 0.135 },
-            { name: 'Tech & Electronics', rate: 0.095 },
-            { name: 'Media (Books, Movies)', rate: 0.14 },
-            { name: 'Fashion', rate: 0.139 },
+             { name: 'Most Categories', rules: [{ name: 'Final Value Fee', type: 'tiered_progressive', tiers: [{ upto: 4000, rate: 0.135 }, { upto: Infinity, rate: 0.025 }] }] },
+             { name: 'Tech & Electronics', rules: [{ name: 'Final Value Fee', type: 'percent', value: 0.095 }] }
         ],
         affiliateTip: { text: "Importing goods?", linkText: "Check Import Tax", url: "#" }
     },
@@ -111,15 +153,34 @@ export const tools: ToolConfig[] = [
         country: 'Canada',
         currency: 'C$',
         type: 'marketplace',
-        fixedFee: 0.30,
         hasAdInput: true,
         hasTaxInput: true,
+        globalFees: [
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
         categories: [
-            { name: 'Most Categories', rate: 0.129 },
-            { name: 'Video Games & Consoles', rate: 0.09 },
-            { name: 'Clothing, Shoes & Accessories', rate: 0.14 },
+            { name: 'Most Categories', rules: [{ name: 'Final Value Fee', type: 'tiered_progressive', tiers: [{ upto: 7500, rate: 0.129 }, { upto: Infinity, rate: 0.0235 }] }] }
         ],
         affiliateTip: { text: "Cross-border fees?", linkText: "Wise Business", url: "#" }
+    },
+    {
+        slug: 'amazon-fba-calculator-usa',
+        title: 'Amazon FBA Profit Calculator (USA)',
+        category: 'Marketplace',
+        country: 'USA',
+        currency: '$',
+        type: 'marketplace',
+        hasAdInput: true,
+        globalFees: [
+             { name: 'FBA Closing Fee', type: 'fixed', value: 0.00, isOptional: true },
+             { name: 'Storage Fee (Est)', type: 'fixed', value: 0.00, isOptional: true }
+        ],
+        categories: [
+            { name: 'Most Categories (Standard)', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.15, min: 0.30 }] },
+            { name: 'Clothing & Accessories', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.17, min: 0.30 }] },
+            { name: 'Consumer Electronics', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.08, min: 0.30 }] }
+        ],
+        affiliateTip: { text: "Tìm ngách Amazon?", linkText: "Helium10 Discount", url: "#" }
     },
     {
         slug: 'amazon-fba-calculator-uk',
@@ -128,39 +189,13 @@ export const tools: ToolConfig[] = [
         country: 'UK',
         currency: '£',
         type: 'marketplace',
-        fixedFee: 0.00, // Referral fee only
+        vatOnFeeRate: 0.20,
         hasAdInput: true,
         categories: [
-            { name: 'Amazon Device Accessories', rate: 0.45 },
-            { name: 'Baby Products', rate: 0.153 },
-            { name: 'Books', rate: 0.153 },
-            { name: 'Clothing & Accessories', rate: 0.153 },
-            { name: 'Consumer Electronics', rate: 0.0714 },
-            { name: 'Home & Kitchen', rate: 0.153 },
-            { name: 'Toys & Games', rate: 0.153 },
+             { name: 'Most Categories', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.153 }] },
+             { name: 'Consumer Electronics', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.0714 }] }
         ],
         affiliateTip: { text: "Sourcing from China?", linkText: "Alibaba Guide", url: "#" }
-    },
-    {
-        slug: 'amazon-fba-calculator-usa',
-        title: 'Amazon FBA Calculator USA',
-        category: 'Marketplace',
-        country: 'USA',
-        currency: '$',
-        type: 'marketplace',
-        fixedFee: 0.00,
-        hasAdInput: true,
-        categories: [
-            { name: 'Amazon Device Accessories', rate: 0.45 },
-            { name: 'Baby Products', rate: 0.15 },
-            { name: 'Books', rate: 0.15 },
-            { name: 'Camera & Photo', rate: 0.08 },
-            { name: 'Clothing & Accessories', rate: 0.17 },
-            { name: 'Consumer Electronics', rate: 0.08 },
-            { name: 'Home & Kitchen', rate: 0.15 },
-            { name: 'Toys & Games', rate: 0.15 },
-        ],
-        affiliateTip: { text: "Product Research?", linkText: "Helium10", url: "#" }
     },
     {
         slug: 'amazon-referral-fee-calculator',
@@ -169,32 +204,86 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        feeRate: 0.15, fixedFee: 0.00,
         hasAdInput: true,
+        globalFees: [
+             { name: 'Referral Fee (Avg)', type: 'percent', value: 0.15 }
+        ],
         affiliateTip: { text: "Boost sales?", linkText: "Amazon PPC Tool", url: "#" }
     },
     {
         slug: 'walmart-marketplace-calculator',
-        title: 'Walmart Marketplace Fees',
+        title: 'Walmart Marketplace ROI',
         category: 'Marketplace',
         country: 'USA',
         currency: '$',
         type: 'marketplace',
-        fixedFee: 0.00,
         hasAdInput: true,
+        globalFees: [],
         categories: [
-             { name: 'Apparel & Accessories', rate: 0.15 },
-             { name: 'Electronics', rate: 0.08 },
-             { name: 'Home & Garden', rate: 0.15 },
-             { name: 'Jewelry', rate: 0.20 },
-             { name: 'Tools & Hardware', rate: 0.15 },
-             { name: 'Toys', rate: 0.15 },
+             { name: 'Apparel & Accessories', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.15 }] },
+             { name: 'Electronics', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.08 }] },
+             { name: 'Home & Garden', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.15 }] },
+             { name: 'Jewelry', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.20 }] }
         ],
-        affiliateTip: { text: "Fast Shipping Tag?", linkText: "Deliverr", url: "#" }
+        affiliateTip: { text: "Fulfillment cho Walmart?", linkText: "Deliverr", url: "#" }
     },
 
     // ============================================================
-    // 2. ETSY & HANDMADE
+    // GROUP 2: SHOPIFY & E-COMMERCE
+    // ============================================================
+    {
+        slug: 'shopify-fee-calculator',
+        title: 'Shopify Profit Calculator',
+        category: 'E-commerce',
+        country: 'Global',
+        currency: '$',
+        type: 'marketplace',
+        hasAdInput: true,
+        hasShippingInput: true,
+        globalFees: [
+            { name: 'Fixed Trans Fee', type: 'fixed', value: 0.30 } 
+        ],
+        categories: [
+            { 
+                name: 'Basic Shopify Plan', 
+                rules: [
+                    { name: 'Credit Card Rate', type: 'percent', value: 0.029, description: "2.9% + 30¢ online" },
+                    { name: '3rd Party Payment Fee', type: 'percent', value: 0.02, isOptional: true, description: "Nếu không dùng Shopify Payments (2%)" }
+                ] 
+            },
+            { 
+                name: 'Shopify Plan', 
+                rules: [
+                    { name: 'Credit Card Rate', type: 'percent', value: 0.026, description: "2.6% + 30¢ online" },
+                    { name: '3rd Party Payment Fee', type: 'percent', value: 0.01, isOptional: true, description: "Nếu không dùng Shopify Payments (1%)" }
+                ] 
+            },
+            { 
+                name: 'Advanced Shopify', 
+                rules: [
+                    { name: 'Credit Card Rate', type: 'percent', value: 0.024, description: "2.4% + 30¢ online" },
+                    { name: '3rd Party Payment Fee', type: 'percent', value: 0.005, isOptional: true, description: "Nếu không dùng Shopify Payments (0.5%)" }
+                ] 
+            }
+        ],
+        affiliateTip: { text: "Theme Shopify đẹp?", linkText: "Themeforest", url: "#" }
+    },
+    {
+        slug: 'woocommerce-stripe-calculator',
+        title: 'WooCommerce (Stripe/PayPal)',
+        category: 'E-commerce',
+        country: 'Global',
+        currency: '$',
+        type: 'marketplace',
+        hasAdInput: true,
+        categories: [
+            { name: 'Stripe Payment', rules: [{ name: 'Processing', type: 'percent', value: 0.029 }, { name: 'Fixed', type: 'fixed', value: 0.30 }] },
+            { name: 'PayPal Standard', rules: [{ name: 'Processing', type: 'percent', value: 0.0349 }, { name: 'Fixed', type: 'fixed', value: 0.49 }] }
+        ]
+    },
+
+    // ============================================================
+    // GROUP 3: HANDMADE & ETSY
     // ============================================================
     {
         slug: 'etsy-profit-calculator',
@@ -203,24 +292,15 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        // Est: 6.5% Transaction + 3% Payment + $0.25 Fixed
-        feeRate: 0.095, fixedFee: 0.25,
-        hasAdInput: true, 
-        hasTaxInput: true,
-        affiliateTip: { text: "Print on Demand?", linkText: "Printful", url: "#" }
-    },
-    {
-        slug: 'etsy-fee-calculator-uk',
-        title: 'Etsy Fee Calculator UK',
-        category: 'Handmade',
-        country: 'UK',
-        currency: '£',
-        type: 'marketplace',
-        // Est: 6.5% + 4% + £0.20
-        feeRate: 0.105, fixedFee: 0.20, 
         hasAdInput: true,
         hasTaxInput: true,
-        affiliateTip: { text: "Craft supplies?", linkText: "AliExpress Bulk", url: "#" }
+        globalFees: [
+            { name: 'Listing Fee ($0.20)', type: 'fixed', value: 0.20 },
+            { name: 'Transaction Fee', type: 'percent', value: 0.065 },
+            { name: 'Payment Proc. (Est)', type: 'percent', value: 0.03 },
+            { name: 'Payment Fixed (Est)', type: 'fixed', value: 0.25 }
+        ],
+        affiliateTip: { text: "Print on Demand?", linkText: "Printful", url: "#" }
     },
     {
         slug: 'etsy-fee-calculator-usa',
@@ -229,10 +309,35 @@ export const tools: ToolConfig[] = [
         country: 'USA',
         currency: '$',
         type: 'marketplace',
-        feeRate: 0.095, fixedFee: 0.25,
         hasAdInput: true,
         hasTaxInput: true,
-        affiliateTip: { text: "Design assets?", linkText: "CreativeMarket", url: "#" }
+        globalFees: [
+            { name: 'Listing Fee', type: 'fixed', value: 0.20 },
+            { name: 'Transaction Fee', type: 'percent', value: 0.065 },
+            { name: 'Payment Processing', type: 'percent', value: 0.03 },
+            { name: 'Payment Fixed', type: 'fixed', value: 0.25 },
+            { name: 'Offsite Ads', type: 'percent', value: 0.15, isOptional: true }
+        ],
+        affiliateTip: { text: "Nguyên liệu giá sỉ?", linkText: "Alibaba", url: "#" }
+    },
+    {
+        slug: 'etsy-fee-calculator-uk',
+        title: 'Etsy Fee Calculator UK',
+        category: 'Handmade',
+        country: 'UK',
+        currency: '£',
+        type: 'marketplace',
+        hasAdInput: true,
+        hasTaxInput: true,
+        vatOnFeeRate: 0.20,
+        globalFees: [
+            { name: 'Listing Fee ($0.20)', type: 'fixed', value: 0.16 }, // Approx GBP
+            { name: 'Transaction Fee', type: 'percent', value: 0.065 },
+            { name: 'Payment Processing', type: 'percent', value: 0.04 },
+            { name: 'Payment Fixed', type: 'fixed', value: 0.20 },
+            { name: 'Regulatory Operating Fee', type: 'percent', value: 0.0032 }
+        ],
+        affiliateTip: { text: "Craft supplies?", linkText: "AliExpress Bulk", url: "#" }
     },
     {
         slug: 'etsy-fee-calculator-australia',
@@ -241,9 +346,14 @@ export const tools: ToolConfig[] = [
         country: 'Australia',
         currency: 'A$',
         type: 'marketplace',
-        feeRate: 0.095, fixedFee: 0.30,
         hasAdInput: true,
         hasTaxInput: true,
+        globalFees: [
+            { name: 'Listing Fee (USD Converted)', type: 'fixed', value: 0.30 },
+            { name: 'Transaction Fee', type: 'percent', value: 0.065 },
+            { name: 'Payment Processing', type: 'percent', value: 0.03 },
+            { name: 'Payment Fixed', type: 'fixed', value: 0.25 }
+        ],
         affiliateTip: { text: "Better photos?", linkText: "PhotoRoom AI", url: "#" }
     },
     {
@@ -253,9 +363,15 @@ export const tools: ToolConfig[] = [
         country: 'Canada',
         currency: 'C$',
         type: 'marketplace',
-        feeRate: 0.095, fixedFee: 0.25,
         hasAdInput: true,
         hasTaxInput: true,
+        globalFees: [
+            { name: 'Listing Fee (USD Converted)', type: 'fixed', value: 0.27 },
+            { name: 'Transaction Fee', type: 'percent', value: 0.065 },
+            { name: 'Payment Processing', type: 'percent', value: 0.03 },
+            { name: 'Payment Fixed', type: 'fixed', value: 0.25 },
+            { name: 'Regulatory Operating Fee', type: 'percent', value: 0.0115 }
+        ],
         affiliateTip: { text: "Shipping to US?", linkText: "Chit Chats", url: "#" }
     },
     {
@@ -265,36 +381,15 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        feeRate: 0.095, fixedFee: 0.25,
-        hasAdInput: true,
+        globalFees: [
+             { name: 'Total Estimated Fees', type: 'percent', value: 0.13 }
+        ],
         affiliateTip: { text: "SEO Keyword Tool?", linkText: "eRank", url: "#" }
     },
 
     // ============================================================
-    // 3. FASHION & RESELL
+    // GROUP 4: FASHION & RESELL (RESTORED ALL)
     // ============================================================
-    {
-        slug: 'vinted-fee-calculator-uk',
-        title: 'Vinted Fee Calculator UK',
-        category: 'Fashion',
-        country: 'UK',
-        currency: '£',
-        type: 'marketplace',
-        feeRate: 0.00, fixedFee: 0.00, // No seller fee
-        hasAdInput: false,
-        affiliateTip: { text: "Packaging?", linkText: "Eco Mailers", url: "#" }
-    },
-    {
-        slug: 'depop-fee-calculator',
-        title: 'Depop Profit Calculator',
-        category: 'Fashion',
-        country: 'Global',
-        currency: '$',
-        type: 'marketplace',
-        feeRate: 0.10, fixedFee: 0.00, // 10% Flat
-        hasAdInput: false,
-        affiliateTip: { text: "Cross-list?", linkText: "Vendoo", url: "#" }
-    },
     {
         slug: 'poshmark-fee-calculator',
         title: 'Poshmark Fee Calculator',
@@ -302,24 +397,62 @@ export const tools: ToolConfig[] = [
         country: 'USA',
         currency: '$',
         type: 'marketplace',
-        hasTaxInput: false,
-        // Poshmark Logic đặc biệt: Tiers
-        categories: [
-            { name: 'Sales under $15 (Fixed Fee)', rate: 0, fixed: 2.95 },
-            { name: 'Sales over $15 (20% Fee)', rate: 0.20, fixed: 0 }
+        globalFees: [
+            { name: 'Flat Fee (Sales < $15)', type: 'fixed', value: 2.95, condition: { maxPrice: 15 } },
+            { name: 'Commission (Sales >= $15)', type: 'percent', value: 0.20, condition: { minPrice: 15 } }
         ],
-        affiliateTip: { text: "Automation Bot?", linkText: "PosherVA", url: "#" }
+        affiliateTip: { text: "Tool share tự động?", linkText: "PosherVA", url: "#" }
     },
     {
-        slug: 'mercari-fee-calculator',
-        title: 'Mercari Fee Calculator',
+        slug: 'vinted-fee-calculator-uk',
+        title: 'Vinted Fee Calculator UK',
+        category: 'Fashion',
+        country: 'UK',
+        currency: '£',
+        type: 'marketplace',
+        globalFees: [
+            { name: 'Seller Fee', type: 'percent', value: 0.00 } 
+        ],
+        affiliateTip: { text: "Packaging?", linkText: "Eco Mailers", url: "#" }
+    },
+    {
+        slug: 'depop-fee-calculator-uk',
+        title: 'Depop Fee Calculator UK',
+        category: 'Fashion',
+        country: 'UK',
+        currency: '£',
+        type: 'marketplace',
+        globalFees: [
+            { name: 'Selling Fee (New)', type: 'percent', value: 0.00, description: "Đã bỏ phí bán hàng 10%" },
+            { name: 'Processing Fee', type: 'percent', value: 0.029 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
+        affiliateTip: { text: "Cross-listing tool?", linkText: "Vendoo", url: "#" }
+    },
+    {
+        slug: 'depop-fee-calculator-us',
+        title: 'Depop Calculator (US)',
         category: 'Fashion',
         country: 'USA',
         currency: '$',
         type: 'marketplace',
-        // Selling (10%) + Processing (2.9% + $0.50)
-        feeRate: 0.129, fixedFee: 0.50, 
-        hasAdInput: false,
+        globalFees: [
+            { name: 'Depop Fee', type: 'percent', value: 0.10 },
+            { name: 'Payment Processing', type: 'percent', value: 0.033 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.45 }
+        ]
+    },
+    {
+        slug: 'mercari-fee-calculator',
+        title: 'Mercari Profit (0% Seller Fee)',
+        category: 'Fashion',
+        country: 'USA',
+        currency: '$',
+        type: 'marketplace',
+        globalFees: [
+            { name: 'Selling Fee', type: 'percent', value: 0.00 },
+            { name: 'Withdrawal Fee', type: 'fixed', value: 2.00 }
+        ],
         affiliateTip: { text: "Need boxes?", linkText: "USPS Free Supplies", url: "#" }
     },
     {
@@ -329,10 +462,11 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        // 9% Commission + Processing (~3%)
-        feeRate: 0.12, fixedFee: 0.30,
-        hasTaxInput: true,
-        affiliateTip: { text: "Legit check?", linkText: "CheckCheck App", url: "#" }
+        globalFees: [
+            { name: 'Commission', type: 'percent', value: 0.09 },
+            { name: 'Payment Processing', type: 'percent', value: 0.0349 }, 
+            { name: 'Fixed Fee', type: 'fixed', value: 0.49 }
+        ]
     },
     {
         slug: 'stockx-fee-calculator',
@@ -341,13 +475,14 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        fixedFee: 0.00,
+        globalFees: [
+            { name: 'Payment Proc.', type: 'percent', value: 0.03 }
+        ],
         categories: [
-            { name: 'Level 1 Seller (10%)', rate: 0.10 },
-            { name: 'Level 2 Seller (9.5%)', rate: 0.095 },
-            { name: 'Level 3 Seller (9%)', rate: 0.09 },
-            { name: 'Level 4 Seller (8.5%)', rate: 0.085 },
-            { name: 'Level 5 Seller (8%)', rate: 0.08 },
+            { name: 'Level 1 Seller (9.5%)', rules: [{ name: 'Transaction Fee', type: 'percent', value: 0.095 }] },
+            { name: 'Level 2 Seller (9.0%)', rules: [{ name: 'Transaction Fee', type: 'percent', value: 0.09 }] },
+            { name: 'Level 3 Seller (8.5%)', rules: [{ name: 'Transaction Fee', type: 'percent', value: 0.085 }] },
+            { name: 'Level 4 Seller (8.0%)', rules: [{ name: 'Transaction Fee', type: 'percent', value: 0.08 }] }
         ],
         affiliateTip: { text: "Sneaker Group?", linkText: "Discord Cook Group", url: "#" }
     },
@@ -358,14 +493,15 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        // Commission (9.5%+) + Cash out fee
-        feeRate: 0.095, fixedFee: 5.00,
-        categories: [
-            { name: 'Good Rating (9.5%)', rate: 0.095 },
-            { name: 'Seller Rating < 90 (15%)', rate: 0.15 },
-            { name: 'Seller Rating > 100 (Min Fee)', rate: 0.095 }
+        globalFees: [
+             { name: 'Seller Fee', type: 'fixed', value: 5.00 },
+             { name: 'Cash Out Fee', type: 'percent', value: 0.029 }
         ],
-        affiliateTip: { text: "Shoe cleaner?", linkText: "Reshoevn8r", url: "#" }
+        categories: [
+            { name: 'Good Rating (9.5%)', rules: [{ name: 'Commission', type: 'percent', value: 0.095 }] },
+            { name: 'Rating < 90 (15%)', rules: [{ name: 'Commission', type: 'percent', value: 0.15 }] },
+            { name: 'Rating > 100 (Min)', rules: [{ name: 'Commission', type: 'percent', value: 0.095 }] }
+        ]
     },
     {
         slug: 'vestiaire-collective-fee-calculator',
@@ -374,7 +510,10 @@ export const tools: ToolConfig[] = [
         country: 'Europe',
         currency: '€',
         type: 'marketplace',
-        feeRate: 0.15, fixedFee: 3.00, // Est average
+        globalFees: [
+             { name: 'Selling Fee (Avg 15%)', type: 'percent', value: 0.15 },
+             { name: 'Payment Proc.', type: 'percent', value: 0.03 }
+        ],
         affiliateTip: { text: "Luxury Auth?", linkText: "Entrupy", url: "#" }
     },
     {
@@ -384,13 +523,66 @@ export const tools: ToolConfig[] = [
         country: 'USA',
         currency: '$',
         type: 'marketplace',
-        feeRate: 0.05, fixedFee: 0.00,
+        globalFees: [
+             { name: 'Selling Fee', type: 'percent', value: 0.05 } 
+        ],
         affiliateTip: { text: "Meetup safety?", linkText: "Safety Tips", url: "#" }
     },
 
     // ============================================================
-    // 4. SOCIAL & CREATOR
+    // GROUP 5: SOCIAL & CREATOR (RESTORED ALL)
     // ============================================================
+    {
+        slug: 'tiktok-shop-fee-calculator-usa',
+        title: 'TikTok Shop Fee USA (2025)',
+        category: 'Social',
+        country: 'USA',
+        currency: '$',
+        type: 'marketplace',
+        hasAdInput: true,
+        hasTaxInput: true,
+        globalFees: [
+            { name: 'Transaction Fee', type: 'percent', value: 0.029 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
+        categories: [
+            { name: 'Standard (Base 6%)', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.06 }] },
+            { name: 'Future Rate (8%)', rules: [{ name: 'Referral Fee', type: 'percent', value: 0.08 }] }
+        ],
+        affiliateTip: { text: "Quay video bán hàng?", linkText: "CapCut Pro", url: "#" }
+    },
+    {
+        slug: 'tiktok-shop-fee-calculator-uk',
+        title: 'TikTok Shop Fee UK',
+        category: 'Social',
+        country: 'UK',
+        currency: '£',
+        type: 'marketplace',
+        vatOnFeeRate: 0.20,
+        globalFees: [
+            { name: 'Commission Fee', type: 'percent', value: 0.05 }, 
+            { name: 'Standard Fee', type: 'percent', value: 0.09, isOptional: true }
+        ],
+        affiliateTip: { text: "Nguồn hàng Dropship?", linkText: "CJ Dropshipping", url: "#" }
+    },
+    {
+        slug: 'tiktok-shop-fee-calculator-vn',
+        title: 'TikTok Shop Fee Vietnam',
+        category: 'Social',
+        country: 'Vietnam',
+        currency: '₫',
+        type: 'marketplace',
+        hasAdInput: true,
+        hasShippingInput: true,
+        globalFees: [
+            { name: 'Phí sàn (Platform)', type: 'percent', value: 0.04 },
+            { name: 'Phí cố định', type: 'percent', value: 0.0, hidden: true },
+        ],
+        categories: [
+            { name: 'Mặc định (Mall)', rules: [{ name: 'Phí Mall', type: 'percent', value: 0.0 }] },
+            { name: 'Livestream FST', rules: [{ name: 'Voucher FST', type: 'percent', value: 0.03, isOptional: true }] }
+        ]
+    },
     {
         slug: 'tiktok-money-calculator',
         title: 'TikTok Money Calculator',
@@ -401,37 +593,17 @@ export const tools: ToolConfig[] = [
         affiliateTip: { text: "Viral editing?", linkText: "CapCut Pro", url: "#" }
     },
     {
-        slug: 'tiktok-shop-fee-calculator-uk',
-        title: 'TikTok Shop Fees UK',
-        category: 'Social',
-        country: 'UK',
-        currency: '£',
-        type: 'marketplace',
-        feeRate: 0.018, fixedFee: 0.00,
-        hasTaxInput: true,
-        affiliateTip: { text: "Dropshipping?", linkText: "CJ Dropshipping", url: "#" }
-    },
-    {
-        slug: 'tiktok-shop-fee-calculator-usa',
-        title: 'TikTok Shop Fees USA',
-        category: 'Social',
-        country: 'USA',
-        currency: '$',
-        type: 'marketplace',
-        feeRate: 0.02, fixedFee: 0.30,
-        hasTaxInput: true,
-        affiliateTip: { text: "Influencers?", linkText: "Insense", url: "#" }
-    },
-    {
         slug: 'whatnot-fee-calculator',
         title: 'Whatnot Fee Calculator',
         category: 'Social',
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        // 8% Comm + 2.9% + 0.30 Proc
-        feeRate: 0.109, fixedFee: 0.30,
-        hasTaxInput: true,
+        globalFees: [
+            { name: 'Commission', type: 'percent', value: 0.08 },
+            { name: 'Processing Fee', type: 'percent', value: 0.029 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
         affiliateTip: { text: "Streaming Gear?", linkText: "Ring Light", url: "#" }
     },
     {
@@ -450,9 +622,12 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'payment_processor', 
-        feeRate: 0.08, fixedFee: 0.00,
-        labels: { amount: 'Pledge Amount', result: 'You Keep' },
-        affiliateTip: { text: "Manage Subs?", linkText: "Discord", url: "#" }
+        globalFees: [
+            { name: 'Platform Fee (Pro)', type: 'percent', value: 0.08 },
+            { name: 'Processing Fee', type: 'percent', value: 0.029 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
+        labels: { amount: 'Pledge Amount', result: 'You Keep' }
     },
     {
         slug: 'kofi-fee-calculator',
@@ -461,7 +636,11 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'payment_processor', 
-        feeRate: 0.00, fixedFee: 0.00, // 0% Platform fee
+        globalFees: [
+             { name: 'Platform Fee', type: 'percent', value: 0.00 },
+             { name: 'PayPal Proc.', type: 'percent', value: 0.0349 },
+             { name: 'Fixed Fee', type: 'fixed', value: 0.49 }
+        ],
         labels: { amount: 'Donation', result: 'You Receive' },
         affiliateTip: { text: "Support?", linkText: "Ko-fi Gold", url: "#" }
     },
@@ -472,13 +651,15 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.10, fixedFee: 0.00,
+        globalFees: [
+            { name: 'Platform Fee', type: 'percent', value: 0.10 }
+        ],
         labels: { amount: 'Product Price', result: 'Earnings' },
         affiliateTip: { text: "Sell eBooks?", linkText: "Canva Pro", url: "#" }
     },
 
     // ============================================================
-    // 5. LOGISTICS & DUTY
+    // GROUP 6: LOGISTICS & DUTY (RESTORED ALL)
     // ============================================================
     {
         slug: 'freight-class-calculator',
@@ -522,8 +703,10 @@ export const tools: ToolConfig[] = [
         category: 'Logistics',
         country: 'Australia',
         currency: 'A$',
-        type: 'payment_processor', // Tính 10% GST trên giá trị
-        feeRate: 0.10, fixedFee: 0.00,
+        type: 'payment_processor', 
+        globalFees: [
+             { name: 'GST', type: 'percent', value: 0.10 }
+        ],
         labels: { amount: 'Goods Value + Shipping', result: 'Tax Amount' }, 
         affiliateTip: { text: "Paying Suppliers?", linkText: "Wise Business", url: "#" }
     },
@@ -533,8 +716,8 @@ export const tools: ToolConfig[] = [
         category: 'Logistics',
         country: 'Global',
         currency: '$',
-        type: 'marketplace', // Dùng form cộng trừ chi phí
-        feeRate: 0, fixedFee: 0,
+        type: 'marketplace',
+        globalFees: [],
         affiliateTip: { text: "Exact Duty?", linkText: "SimplyDuty", url: "#" }
     },
     {
@@ -544,34 +727,39 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'marketplace',
-        feeRate: 0, fixedFee: 0,
+        globalFees: [],
         affiliateTip: { text: "Incoterms?", linkText: "Chart Download", url: "#" }
     },
 
     // ============================================================
-    // 6. FINANCE, ADS & FREELANCE
+    // GROUP 7: FINANCE & FREELANCE (RESTORED ALL)
     // ============================================================
     {
-        slug: 'stripe-fee-calculator',
-        title: 'Stripe Fees',
-        category: 'Finance',
-        country: 'USA',
-        currency: '$',
-        type: 'payment_processor',
-        feeRate: 0.029, fixedFee: 0.30,
-        labels: { amount: 'Invoice Amount', result: 'Payout' },
-        affiliateTip: { text: "SaaS Metrics?", linkText: "Baremetrics", url: "#" }
-    },
-    {
         slug: 'paypal-fee-calculator',
-        title: 'PayPal Fees',
+        title: 'PayPal Fees Calculator',
         category: 'Finance',
         country: 'Global',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.0349, fixedFee: 0.49,
-        labels: { amount: 'Transaction Amount', result: 'Payout' },
-        affiliateTip: { text: "Too high?", linkText: "Use Wise", url: "#" }
+        categories: [
+            { name: 'Domestic (US)', rules: [{ name: 'Rate', type: 'percent', value: 0.0349 }, { name: 'Fixed', type: 'fixed', value: 0.49 }] },
+            { name: 'International', rules: [{ name: 'Rate', type: 'percent', value: 0.05 }, { name: 'Fixed', type: 'fixed', value: 0.49 }] }
+        ],
+        labels: { amount: 'Transaction Amount', result: 'You Receive' }
+    },
+    {
+        slug: 'stripe-fee-calculator',
+        title: 'Stripe Fee Calculator',
+        category: 'Finance',
+        country: 'USA',
+        currency: '$',
+        type: 'payment_processor',
+        globalFees: [
+            { name: 'Card Processing', type: 'percent', value: 0.029 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.30 }
+        ],
+        labels: { amount: 'Invoice Amount', result: 'Payout' },
+        affiliateTip: { text: "Quản lý tài chính SaaS?", linkText: "Baremetrics", url: "#" }
     },
     {
         slug: 'square-fee-calculator',
@@ -580,7 +768,10 @@ export const tools: ToolConfig[] = [
         country: 'USA',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.026, fixedFee: 0.10,
+        globalFees: [
+            { name: 'Processing Fee', type: 'percent', value: 0.026 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.10 }
+        ],
         affiliateTip: { text: "Hardware?", linkText: "Square Reader", url: "#" }
     },
     {
@@ -603,30 +794,10 @@ export const tools: ToolConfig[] = [
         country: 'USA',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.0275, fixedFee: 0.00,
+        globalFees: [
+             { name: 'Business Trans.', type: 'percent', value: 0.0275 }
+        ],
         affiliateTip: { text: "Mobile pay?", linkText: "Cash App", url: "#" }
-    },
-    {
-        slug: 'break-even-roas-calculator',
-        title: 'Break Even ROAS',
-        category: 'Finance',
-        country: 'Global',
-        currency: 'x',
-        type: 'marketplace', // Dùng logic margin để tính ROAS
-        feeRate: 0, fixedFee: 0,
-        hasAdInput: true, // Quan trọng để tính ROAS
-        affiliateTip: { text: "Spy Ads?", linkText: "FB Ad Library", url: "#" }
-    },
-    {
-        slug: 'dropshipping-profit-calculator',
-        title: 'Dropshipping Profit',
-        category: 'Finance',
-        country: 'Global',
-        currency: '$',
-        type: 'marketplace',
-        feeRate: 0, fixedFee: 0,
-        hasAdInput: true, // Dropshipping thường chạy ads
-        affiliateTip: { text: "Winners?", linkText: "Minea", url: "#" }
     },
     {
         slug: 'upwork-fee-calculator',
@@ -635,7 +806,9 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.10, fixedFee: 0.00,
+        globalFees: [
+            { name: 'Service Fee', type: 'percent', value: 0.10 } // 10% Flat
+        ],
         labels: { amount: 'Project Fee', result: 'You Earn' },
         affiliateTip: { text: "Withdraw?", linkText: "Payoneer", url: "#" }
     },
@@ -646,9 +819,10 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.20, fixedFee: 0.00,
-        labels: { amount: 'Gig Price', result: 'You Keep' },
-        affiliateTip: { text: "Pro?", linkText: "Fiverr Pro", url: "#" }
+        globalFees: [
+            { name: 'Service Fee', type: 'percent', value: 0.20 }
+        ],
+        labels: { amount: 'Gig Price', result: 'You Keep' }
     },
     {
         slug: 'payoneer-fee-calculator',
@@ -657,8 +831,65 @@ export const tools: ToolConfig[] = [
         country: 'Global',
         currency: '$',
         type: 'payment_processor',
-        feeRate: 0.02, fixedFee: 0.00,
-        labels: { amount: 'Withdraw Amount', result: 'Bank Receives' },
-        affiliateTip: { text: "Bonus?", linkText: "Sign up $25", url: "#" }
+        globalFees: [
+            { name: 'Withdraw Fee (Max)', type: 'percent', value: 0.02 }
+        ],
+        labels: { amount: 'Withdraw Amount', result: 'Bank Receives' }
+    },
+    {
+        slug: 'wise-fee-calculator',
+        title: 'Wise Transfer Calculator',
+        category: 'Finance',
+        country: 'Global',
+        currency: '$',
+        type: 'payment_processor',
+        globalFees: [
+            { name: 'Variable Fee', type: 'percent', value: 0.0045 },
+            { name: 'Fixed Fee', type: 'fixed', value: 0.50 }
+        ],
+        labels: { amount: 'Send Amount', result: 'Recipient Gets' }
+    },
+
+    // ============================================================
+    // GROUP 8: UTILITY & METRICS (NEW)
+    // ============================================================
+    {
+        slug: 'roas-break-even-calculator',
+        title: 'Break-Even ROAS Calculator',
+        category: 'Finance',
+        country: 'Global',
+        currency: 'x',
+        type: 'calculator',
+        hasCostInput: true,
+        hasAdInput: false, 
+        globalFees: [], 
+        labels: { amount: 'Selling Price', cost: 'COGS + Fees', result: 'Min ROAS to Profit' },
+        affiliateTip: { text: "Theo dõi Ads lãi lỗ?", linkText: "TripleWhale", url: "#" }
+    },
+    {
+        slug: 'cpm-cost-calculator',
+        title: 'CPM Marketing Calculator',
+        category: 'Finance',
+        country: 'Global',
+        currency: '$',
+        type: 'calculator',
+        globalFees: [],
+        labels: { amount: 'Total Ad Spend', result: 'CPM Cost' }
+    },
+    {
+        slug: 'dropshipping-profit-calculator',
+        title: 'Dropshipping Profit Estimator',
+        category: 'E-commerce',
+        country: 'Global',
+        currency: '$',
+        type: 'marketplace',
+        hasAdInput: true,
+        hasShippingInput: true,
+        hasCostInput: true,
+        globalFees: [
+             { name: 'Payment Gateway', type: 'percent', value: 0.029 },
+             { name: 'Fixed Trans', type: 'fixed', value: 0.30 }
+        ],
+        affiliateTip: { text: "Tìm Winning Product?", linkText: "Minea Spy Tool", url: "#" }
     }
 ];
